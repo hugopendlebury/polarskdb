@@ -14,7 +14,6 @@ pub enum DBError {
     PolarsCreationError,
 }
 
-
 impl ToPyObject for DBError {
     fn to_object(&self, py: Python) -> PyObject {
         self.to_string().to_object(py)
@@ -112,7 +111,5 @@ impl PySQLXError {
 }
 
 pub fn py_error(err: String, typ: DBError) -> PySQLXError {
-
     PySQLXError::py_new(String::from("0"), String::from(err.to_string()), typ)
-
 }
