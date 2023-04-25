@@ -24,7 +24,7 @@ pub fn main() {
     println!("Yo im done")
 }
 
-pub async fn polars_to_table<'a>(table_name: String, data: DataFrame) -> bool {
+pub async fn polars_to_table<'a>(_table_name: String, data: DataFrame) -> bool {
 
     let df = data;
 
@@ -33,12 +33,12 @@ pub async fn polars_to_table<'a>(table_name: String, data: DataFrame) -> bool {
 
         let dtype = _col._dtype();
         if *dtype == DataType::Utf8 {
-            let x = _col.utf8().unwrap();
+            let _x = _col.utf8().unwrap();
             //x.as_vec::<String>().unwrap();
             //let as_vec: Vec<Option<i32>> = s.i32()?.into_iter().collect();
 
             // if we are certain we don't have missing values
-            let as_vec: Vec<String> = _col.utf8().unwrap().into_no_null_iter().map(|c| String::from(c)).collect();
+            let as_vec: Vec<String> = _col.utf8().unwrap().into_no_null_iter().map(String::from).collect();
 
             let symbol_list = K::new_symbol_list(
                 as_vec,
@@ -55,14 +55,14 @@ pub async fn polars_to_table<'a>(table_name: String, data: DataFrame) -> bool {
             let values = K::new_compound_list(vec![symbol_list]);
             let dictionary = K::new_dictionary(keys, values).unwrap();
             let table = dictionary.flip().unwrap();
-            let mut conn = kdbplus::ipc::QStream::connect(ConnectionMethod::TCP, "127.0.0.1", 5001_u16, "").await;
+            let conn = kdbplus::ipc::QStream::connect(ConnectionMethod::TCP, "127.0.0.1", 5001_u16, "").await;
             conn.unwrap().send_sync_message(&table).await;
         }
 
     }
 
 
-    return true;
+    true
 }
 
 #[pyfunction]
