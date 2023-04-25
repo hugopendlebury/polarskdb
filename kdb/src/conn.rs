@@ -58,7 +58,7 @@ impl PolarsUtils {
     }
 
 
-    pub fn to_k<'a,'b>(&self, dataframe: &DataFrame) -> K {
+    pub fn to_k<'a>(&self, dataframe: &DataFrame) -> K {
 
         let mut columns = Vec::<K>::new();
 
