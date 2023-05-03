@@ -18,53 +18,6 @@ pub fn get_version() -> String {
     version.replace("-alpha", "a").replace("-beta", "b")
 }
 
-pub fn main() {
-    let df = df!("Fruit" => &["Apple", "Apple", "Pear"]).unwrap();
-    polars_to_table(String::from("dummy_hugo"), df);
-    println!("Yo im done")
-}
-
-pub async fn polars_to_table<'a>(_table_name: String, data: DataFrame) -> bool {
-
-    let df = data;
-
-
-    for _col in df.get_columns() {
-
-        let dtype = _col._dtype();
-        if *dtype == DataType::Utf8 {
-            let _x = _col.utf8().unwrap();
-            //x.as_vec::<String>().unwrap();
-            //let as_vec: Vec<Option<i32>> = s.i32()?.into_iter().collect();
-
-            // if we are certain we don't have missing values
-            let as_vec: Vec<String> = _col.utf8().unwrap().into_no_null_iter().map(String::from).collect();
-
-            let symbol_list = K::new_symbol_list(
-                as_vec,
-                qattribute::NONE,
-            );
-
-
-            let keys = K::new_symbol_list(
-                vec![
-                    String::from("people"),
-                ],
-                qattribute::NONE,
-            );
-            let values = K::new_compound_list(vec![symbol_list]);
-            let dictionary = K::new_dictionary(keys, values).unwrap();
-            let table = dictionary.flip().unwrap();
-            let conn = kdbplus::ipc::QStream::connect(ConnectionMethod::TCP, "127.0.0.1", 5001_u16, "").await;
-            conn.unwrap().send_sync_message(&table).await;
-        }
-
-    }
-
-
-    true
-}
-
 #[pyfunction]
 fn new(py: Python, hostname: String) -> PyResult<&PyAny> {
     pyo3_asyncio::tokio::future_into_py(py, async move {

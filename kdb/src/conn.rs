@@ -8,8 +8,6 @@ use pyo3::prelude::*;
 use pyo3_polars::PyDataFrame;
 use core::result::Result;
 use super::helpers::*;
-use std::fs::File;
-use std::io::prelude::*;
 
 #[pyclass]
 #[derive(Debug, Clone)]
@@ -65,40 +63,43 @@ impl PolarsUtils {
         for _col in dataframe.get_columns() {
     
             let dtype = _col._dtype();
-            if *dtype == DataType::Utf8 {
-                let x = _col.utf8().unwrap().into_iter();
-                let converted: Vec<K> = x.map( |x| {
-                    match x {
-                        Some(a) =>  { return K::new_symbol(String::from(a)); }
-                        None => { return K::new_null();}
-                    }  ;
-                }).into_iter().collect();
-                columns.push(K::new_compound_list(converted));
-
-            }
-            if *dtype == DataType::Float64 {
+            match dtype {
+                DataType::Utf8 => {
+                    let x = _col.utf8().unwrap().into_iter();
+                    let converted: Vec<K> = x.map( |x| {
+                        match x {
+                            Some(a) =>  { return K::new_symbol(String::from(a)); }
+                            None => { return K::new_null();}
+                        }  ;
+                    }).into_iter().collect();
+                    columns.push(K::new_compound_list(converted));
+    
+                }
+                DataType::Float64 => {
                     let col_data = self.series_to_k(_col, 
                         |s| s.f64().unwrap().into_iter(), 
                         |v| K::new_float(v),
                         |k| K::new_compound_list(k)
                     );
                     columns.push(col_data);
-            }
-            if *dtype == DataType::Int32 {
-                let col_data = self.series_to_k(_col, 
-                    |s| s.i32().unwrap().into_iter(), 
-                    |v| K::new_int(v),
-                    |k| K::new_compound_list(k)
-                );
-                columns.push(col_data);
-            }
-            if *dtype == DataType::Int64 {
-                let col_data = self.series_to_k(_col, 
-                    |s| s.i64().unwrap().into_iter(), 
-                    |v| K::new_long(v),
-                    |k| K::new_compound_list(k)
-                );
-                columns.push(col_data);
+                }
+                DataType::Int32  => {
+                    let col_data = self.series_to_k(_col, 
+                        |s| s.i32().unwrap().into_iter(), 
+                        |v| K::new_int(v),
+                        |k| K::new_compound_list(k)
+                    );
+                    columns.push(col_data);
+                }
+                DataType::Int64 => {
+                    let col_data = self.series_to_k(_col, 
+                        |s| s.i64().unwrap().into_iter(), 
+                        |v| K::new_long(v),
+                        |k| K::new_compound_list(k)
+                    );
+                    columns.push(col_data);
+                }
+                _ => {}
             }
     
         }
@@ -123,12 +124,12 @@ impl Connection {
     }
 
     async fn _query(&self, sql: String) -> StdResult<DataFrame, PySQLXError> {
-        let mut conn = kdbplus::ipc::QStream::connect(ConnectionMethod::TCP, "127.0.0.1", 5001_u16, "").await;
+        let conn = kdbplus::ipc::QStream::connect(ConnectionMethod::TCP, "127.0.0.1", 5001_u16, "").await;
         let query = &sql.as_str();
         match conn.unwrap().send_sync_message(query).await {
             Ok(r) => {
-                let polarsColumns = k_result_to_series(&r);
-                match DataFrame::new(polarsColumns) {
+                let polars_columns = k_result_to_series(&r);
+                match DataFrame::new(polars_columns) {
                     Ok(r) => {
                         return Ok(r)
                     },
@@ -152,7 +153,7 @@ impl Connection {
 
     //TODO - REFACTOR _query to use a union Type
     async fn _send_k(&self, k: &K) -> StdResult<(), PySQLXError> {
-        let mut conn = kdbplus::ipc::QStream::connect(ConnectionMethod::TCP, "127.0.0.1", 5001_u16, "").await;
+        let conn = kdbplus::ipc::QStream::connect(ConnectionMethod::TCP, "127.0.0.1", 5001_u16, "").await;
 
         match conn.unwrap().send_sync_message(k).await {
             Ok(r) => {
@@ -172,10 +173,9 @@ impl Connection {
 
 #[pymethods]
 impl Connection {
-    //'a: 'b, 'b
+
     pub fn query<'a>(&self, py: Python<'a>, sql: String) -> PyResult<&'a PyAny> {
-        let mut file = File::options().append(true).open("/Users/hugo/polars.log")?;
-        file.write_all(b"Entered python\n")?;
+
         let slf = self.clone();
         pyo3_asyncio::tokio::future_into_py(py, async move {
             match slf._query(sql).await {
@@ -202,7 +202,7 @@ impl Connection {
 
         let dictionary = K::new_dictionary(keys, values).unwrap();
         let table = dictionary.flip().unwrap();
-        let mut table_assign=K::new_compound_list(vec![K::new_string(String::from("set"), qattribute::NONE), K::new_symbol(table_name.clone()), table]);
+        let table_assign=K::new_compound_list(vec![K::new_string(String::from("set"), qattribute::NONE), K::new_symbol(table_name.clone()), table]);
         
         let slf = self.clone();
         pyo3_asyncio::tokio::future_into_py(py, async move {
@@ -216,7 +216,7 @@ impl Connection {
 
     //TODO: Implement this
     pub fn is_healthy(&self) -> bool {
-        return true;
+        true
         //self.conn.is_healthy()
     }
 }
