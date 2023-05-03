@@ -2,6 +2,7 @@ use chrono::prelude::*;
 use kdbplus::ipc::K;
 use kdbplus::*;
 use polars_core::prelude::*;
+use rayon::prelude::*;
 //use chrono
 
 pub fn get_column_names<'a>(result: &'a K) -> impl Iterator<Item = &'a String> {
@@ -10,37 +11,24 @@ pub fn get_column_names<'a>(result: &'a K) -> impl Iterator<Item = &'a String> {
     columns.iter()
 }
 
-
 pub fn k_result_to_series(result: &K) -> Vec<Series> {
     let columns = get_column_names(result);
-    let mut polars_columns = Vec::<Series>::new();
+    //let mut polars_columns = Vec::<Series>::new();
 
-    for col in columns {
+    columns.map(|col| {
         let c = result.get_column(col).unwrap();
         match c.get_type() {
-            qtype::LONG_LIST => {
-                polars_columns.push(Series::new(col.as_str(), c.as_vec::<i64>().unwrap()))
-            }
-            qtype::SYMBOL_LIST => {
-                polars_columns.push(Series::new(col.as_str(), c.as_vec::<String>().unwrap()))
-            }
-            qtype::FLOAT_LIST => {
-                polars_columns.push(Series::new(col.as_str(), c.as_vec::<f64>().unwrap()))
-            }
-            qtype::INT_LIST => {
-                polars_columns.push(Series::new(col.as_str(), c.as_vec::<i32>().unwrap()))
-            }
-            qtype::REAL_LIST => {
-                polars_columns.push(Series::new(col.as_str(), c.as_vec::<f32>().unwrap()))
-            }
-            qtype::BOOL_LIST => {
-                polars_columns.push(Series::new(col.as_str(), c.as_vec::<bool>().unwrap()))
-            }
-            qtype::BYTE_LIST => {
-                //polars_columns.push(Series::new(col.as_str(), c.as_vec::<u8>().unwrap()))
-            }
-            _ => {}
+            qtype::LONG_LIST => Series::new(col.as_str(), c.as_vec::<i64>().unwrap()),
+            qtype::SYMBOL_LIST => Series::new(col.as_str(), c.as_vec::<String>().unwrap()),
+            qtype::FLOAT_LIST => Series::new(col.as_str(), c.as_vec::<f64>().unwrap()),
+            qtype::INT_LIST => Series::new(col.as_str(), c.as_vec::<i32>().unwrap()),
+            qtype::REAL_LIST => Series::new(col.as_str(), c.as_vec::<f32>().unwrap()),
+            qtype::BOOL_LIST => Series::new(col.as_str(), c.as_vec::<bool>().unwrap()),
+            //qtype::BYTE_LIST => {
+            //polars_columns.push(Series::new(col.as_str(), c.as_vec::<u8>().unwrap()))
+            //}
+            _ => panic!()
         }
-    }
-    polars_columns
+    }).collect()
+    //polars_columns
 }

@@ -8,6 +8,7 @@ use pyo3::prelude::*;
 use pyo3_polars::PyDataFrame;
 use core::result::Result;
 use super::helpers::*;
+use rayon::prelude::*;
 
 #[pyclass]
 #[derive(Debug, Clone)]
@@ -58,10 +59,8 @@ impl PolarsUtils {
 
     pub fn to_k<'a>(&self, dataframe: &DataFrame) -> K {
 
-        let mut columns = Vec::<K>::new();
+        let columns = dataframe.get_columns().par_iter().map(|_col| {
 
-        for _col in dataframe.get_columns() {
-    
             let dtype = _col._dtype();
             match dtype {
                 DataType::Utf8 => {
@@ -72,37 +71,33 @@ impl PolarsUtils {
                             None => { return K::new_null();}
                         }  ;
                     }).into_iter().collect();
-                    columns.push(K::new_compound_list(converted));
-    
+                    K::new_compound_list(converted)
                 }
                 DataType::Float64 => {
-                    let col_data = self.series_to_k(_col, 
+                    self.series_to_k(_col, 
                         |s| s.f64().unwrap().into_iter(), 
                         |v| K::new_float(v),
                         |k| K::new_compound_list(k)
-                    );
-                    columns.push(col_data);
+                    )
                 }
                 DataType::Int32  => {
-                    let col_data = self.series_to_k(_col, 
+                    self.series_to_k(_col, 
                         |s| s.i32().unwrap().into_iter(), 
                         |v| K::new_int(v),
                         |k| K::new_compound_list(k)
-                    );
-                    columns.push(col_data);
+                    )
                 }
                 DataType::Int64 => {
-                    let col_data = self.series_to_k(_col, 
+                    self.series_to_k(_col, 
                         |s| s.i64().unwrap().into_iter(), 
                         |v| K::new_long(v),
                         |k| K::new_compound_list(k)
-                    );
-                    columns.push(col_data);
+                    )
                 }
-                _ => {}
+                _ => panic!()
             }
     
-        }
+        }).collect();
 
         return K::new_compound_list(columns);
     }
