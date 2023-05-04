@@ -9,12 +9,14 @@ use pyo3_polars::PyDataFrame;
 use core::result::Result;
 use super::helpers::*;
 use rayon::prelude::*;
+use rayon::option::*;
 
 #[pyclass]
 #[derive(Debug, Clone)]
 pub struct Connection {
     //conn: QStream,
-    //hostname: String,
+    hostname: String,
+    port: u16,
 }
 
 
@@ -39,17 +41,18 @@ impl PolarsUtils {
     where    F: Fn(&'a Series) -> Box<dyn PolarsIterator<Item = Option<T>> + 'a>  + 'a
             ,NewK: Fn(T) -> K
             ,ListK: Fn(Vec<K>) -> K
-            ,T: num_traits::Num + Send + 'b 
+            ,T: num_traits::Num + 'b 
 
     {
         let chunk = extractor(series);
-        let x = chunk.into_iter();
-        let results : Vec<K> = x.map( |x| {
+        //let x  = &chunk.collect::<T>().par_iter();
+        //let x = chunk.into_iter();
+        let results : Vec<K> = chunk.map( |x| {
             match x {
                 Some(a) =>  { return new_k(a) ;}
                 None => { return K::new_null();}
             }  ;
-        }).into_iter().collect();
+        }).collect();
 
         let k = list_k(results);
 
@@ -57,38 +60,39 @@ impl PolarsUtils {
     }
 
 
+
     pub fn to_k<'a>(&self, dataframe: &DataFrame) -> K {
 
-        let columns = dataframe.get_columns().par_iter().map(|_col| {
+        let columns = dataframe.get_columns().par_iter().map(|series| -> K {
+            
+            match series._dtype() {
 
-            let dtype = _col._dtype();
-            match dtype {
                 DataType::Utf8 => {
-                    let x = _col.utf8().unwrap().into_iter();
+                    let x = series.utf8().unwrap().par_iter();
                     let converted: Vec<K> = x.map( |x| {
                         match x {
                             Some(a) =>  { return K::new_symbol(String::from(a)); }
                             None => { return K::new_null();}
                         }  ;
-                    }).into_iter().collect();
+                    }).collect();
                     K::new_compound_list(converted)
                 }
                 DataType::Float64 => {
-                    self.series_to_k(_col, 
+                    self.series_to_k(series, 
                         |s| s.f64().unwrap().into_iter(), 
                         |v| K::new_float(v),
                         |k| K::new_compound_list(k)
                     )
                 }
                 DataType::Int32  => {
-                    self.series_to_k(_col, 
+                    self.series_to_k(series, 
                         |s| s.i32().unwrap().into_iter(), 
                         |v| K::new_int(v),
                         |k| K::new_compound_list(k)
                     )
                 }
                 DataType::Int64 => {
-                    self.series_to_k(_col, 
+                    self.series_to_k(series, 
                         |s| s.i64().unwrap().into_iter(), 
                         |v| K::new_long(v),
                         |k| K::new_compound_list(k)
@@ -98,7 +102,7 @@ impl PolarsUtils {
             }
     
         }).collect();
-
+        
         return K::new_compound_list(columns);
     }
 }
@@ -110,16 +114,16 @@ impl Connection {
 
 
 
-    pub async fn new(hostname: String) -> StdResult<Self, PySQLXError> {
-        let conn = match kdbplus::ipc::QStream::connect(ConnectionMethod::TCP, hostname.as_str(), 5001_u16, "").await {
+    pub async fn new(hostname: String, port: u16) -> StdResult<Self, PySQLXError> {
+        let conn = match kdbplus::ipc::QStream::connect(ConnectionMethod::TCP, hostname.as_str(), port, "").await {
             Ok(r) => r,
             Err(e) => return Err(py_error(e.to_string(), DBError::ConnectError)),
         };
-        Ok(Self { })
+        Ok(Self { hostname : hostname, port:port})
     }
 
     async fn _query(&self, sql: String) -> StdResult<DataFrame, PySQLXError> {
-        let conn = kdbplus::ipc::QStream::connect(ConnectionMethod::TCP, "127.0.0.1", 5001_u16, "").await;
+        let conn = kdbplus::ipc::QStream::connect(ConnectionMethod::TCP, &self.hostname, self.port, "").await;
         let query = &sql.as_str();
         match conn.unwrap().send_sync_message(query).await {
             Ok(r) => {
@@ -148,9 +152,9 @@ impl Connection {
 
     //TODO - REFACTOR _query to use a union Type
     async fn _send_k(&self, k: &K) -> StdResult<(), PySQLXError> {
-        let conn = kdbplus::ipc::QStream::connect(ConnectionMethod::TCP, "127.0.0.1", 5001_u16, "").await;
+        let conn = kdbplus::ipc::QStream::connect(ConnectionMethod::TCP, &self.hostname, self.port, "").await;
 
-        match conn.unwrap().send_sync_message(k).await {
+        match conn.unwrap().send_async_message(k).await {
             Ok(r) => {
                 Ok(())
             },

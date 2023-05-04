@@ -36,5 +36,4 @@ pub fn k_result_to_series(result: &K) -> Vec<Series> {
             }
         })
         .collect()
-    //polars_columns
 }

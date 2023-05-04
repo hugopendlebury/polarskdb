@@ -2,10 +2,7 @@ use kdb::Connection;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 use py_types::{PySQLXError};
-use polars_core::prelude::*;
-use kdbplus::ipc::K;
-use kdbplus::ipc::*;
-use kdbplus::*;
+
 
 
 pub fn get_version() -> String {
@@ -19,9 +16,9 @@ pub fn get_version() -> String {
 }
 
 #[pyfunction]
-fn new(py: Python, hostname: String) -> PyResult<&PyAny> {
+fn new(py: Python, hostname: String, port: u16) -> PyResult<&PyAny> {
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        match Connection::new(hostname).await {
+        match Connection::new(hostname, port).await {
             Ok(r) => Ok(r),
             Err(e) => Err(e.to_pyerr()),
         }

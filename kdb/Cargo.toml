@@ -4,17 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-pyo3 = "0.18.1"
+pyo3 = "0.18.3"
 pyo3-asyncio = { version = "0.18", features = ["tokio-runtime"] }
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.28.0", features = ["full"] }
 kdbplus = {version="0.3.8", features=["ipc", "api"]}
-#polars-core = "0.28.0"
-polars-core = { version = "0.27.2" }
-pyo3-polars = "0.2.0"
+polars-core = { version = "0.28.0" }
+pyo3-polars = "0.2.1"
 py_types = { path = "../py_types"}
 chrono="0.4"
 num-traits = "0.2.15"
-rayon = "1.6"
+rayon = {version = "1.7"}
 
 [dev-dependencies]
-tokio = { version = "1", features = ["macros"] }
+tokio = { version = "1.28.0", features = ["macros"] }
