@@ -39,7 +39,7 @@ impl PolarsUtils {
     where    F: Fn(&'a Series) -> Box<dyn PolarsIterator<Item = Option<T>> + 'a>  + 'a
             ,NewK: Fn(T) -> K
             ,ListK: Fn(Vec<K>) -> K
-            ,T: num_traits::Num + 'b 
+            ,T: num_traits::Num + Send + 'b 
 
     {
         let chunk = extractor(series);
