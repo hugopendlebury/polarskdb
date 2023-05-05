@@ -45,13 +45,11 @@ impl PolarsUtils {
 
     {
         let chunk = extractor(series);
-        //let x  = &chunk.collect::<T>().par_iter();
-        //let x = chunk.into_iter();
         let results : Vec<K> = chunk.map( |x| {
             match x {
-                Some(a) =>  { return new_k(a) ;}
-                None => { return K::new_null();}
-            }  ;
+                Some(a) =>  new_k(a),
+                None => K::new_null()
+            }  
         }).collect();
 
         let k = list_k(results);
@@ -60,6 +58,50 @@ impl PolarsUtils {
     }
 
 
+    fn series_to_k_new<'a, 'b, F, NewK, T, ListK>(&self, iterator: F, new_k: NewK, list_k: ListK) -> K 
+    where    F: IntoIterator<Item = Option<T>> 
+            ,NewK: Fn(T) -> K
+            ,ListK: Fn(Vec<K>) -> K
+            ,T: num_traits::Num + 'b 
+
+    {
+
+        let results : Vec<K> = iterator.into_iter().map( |x| {
+            match x {
+                Some(a) =>  new_k(a),
+                None =>  K::new_null() 
+            }  
+        }).collect();
+
+        let k = list_k(results);
+
+        return k;
+    }
+
+    /* 
+
+    TODO - Need to see if can sort out the collect part
+
+    fn series_to_k_par<'a, 'b, F, NewK, T, ListK>(&self, iterator: F, new_k: NewK, list_k: ListK) -> K 
+    where    F: IntoParallelIterator<Item = Option<T>> 
+            ,NewK: Fn(T) -> K
+            ,ListK: Fn(Vec<K>) -> K
+            ,T: num_traits::Num + 'b 
+
+    {
+
+        let results : Vec<K> = iterator.into_par_iter().map( |x| {
+            match x {
+                Some(a) =>  new_k(a) ,
+                None => K::new_null()
+            }  ;
+        }).collect();
+
+        let k = list_k(results);
+
+        return k;
+    }
+    */
 
     pub fn to_k<'a>(&self, dataframe: &DataFrame) -> K {
 
@@ -71,29 +113,27 @@ impl PolarsUtils {
                     let x = series.utf8().unwrap().par_iter();
                     let converted: Vec<K> = x.map( |x| {
                         match x {
-                            Some(a) =>  { return K::new_symbol(String::from(a)); }
-                            None => { return K::new_null();}
-                        }  ;
+                            Some(a) =>  K::new_symbol(String::from(a)),
+                            None => K::new_null()
+                        }  
                     }).collect();
                     K::new_compound_list(converted)
                 }
                 DataType::Float64 => {
-                    self.series_to_k(series, 
-                        |s| s.f64().unwrap().into_iter(), 
+                    self.series_to_k_new( 
+                        series.f64().unwrap(), 
                         |v| K::new_float(v),
                         |k| K::new_compound_list(k)
                     )
                 }
                 DataType::Int32  => {
-                    self.series_to_k(series, 
-                        |s| s.i32().unwrap().into_iter(), 
+                    self.series_to_k_new (series.i32().unwrap(),
                         |v| K::new_int(v),
                         |k| K::new_compound_list(k)
                     )
                 }
                 DataType::Int64 => {
-                    self.series_to_k(series, 
-                        |s| s.i64().unwrap().into_iter(), 
+                    self.series_to_k_new(series.i64().unwrap(), 
                         |v| K::new_long(v),
                         |k| K::new_compound_list(k)
                     )
