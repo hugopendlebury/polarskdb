@@ -31,78 +31,30 @@ pub struct PolarsUtils {
 
 impl PolarsUtils {
 
-
-
     pub fn new() -> Result<Self, PolarsConversionError> {
         Ok(Self { })
     }
     
-    fn series_to_k<'a, 'b, F, NewK, T, ListK>(&self, series: &'a Series, extractor: F, new_k: NewK, list_k: ListK) -> K 
-    where    F: Fn(&'a Series) -> Box<dyn PolarsIterator<Item = Option<T>> + 'a>  + 'a
-            ,NewK: Fn(T) -> K
-            ,ListK: Fn(Vec<K>) -> K
-            ,T: num_traits::Num + 'b 
-
-    {
-        let chunk = extractor(series);
-        let results : Vec<K> = chunk.map( |x| {
-            match x {
-                Some(a) =>  new_k(a),
-                None => K::new_null()
-            }  
-        }).collect();
-
-        let k = list_k(results);
-
-        return k;
-    }
-
-
-    fn series_to_k_new<'a, 'b, F, NewK, T, ListK>(&self, iterator: F, new_k: NewK, list_k: ListK) -> K 
-    where    F: IntoIterator<Item = Option<T>> 
-            ,NewK: Fn(T) -> K
-            ,ListK: Fn(Vec<K>) -> K
-            ,T: num_traits::Num + 'b 
-
-    {
-
-        let results : Vec<K> = iterator.into_iter().map( |x| {
-            match x {
-                Some(a) =>  new_k(a),
-                None =>  K::new_null() 
-            }  
-        }).collect();
-
-        let k = list_k(results);
-
-        return k;
-    }
-
-    /* 
-
-    TODO - Need to see if can sort out the collect part
-
-    fn series_to_k_par<'a, 'b, F, NewK, T, ListK>(&self, iterator: F, new_k: NewK, list_k: ListK) -> K 
+    fn series_to_k_par<'a, F, NewK, T, ListK>(&self, iterator: F, new_k: NewK, list_k: ListK) -> K 
     where    F: IntoParallelIterator<Item = Option<T>> 
-            ,NewK: Fn(T) -> K
+            ,NewK: Fn(T) -> K + std::marker::Sync
             ,ListK: Fn(Vec<K>) -> K
-            ,T: num_traits::Num + 'b 
+            ,T: num_traits::Num //+ lhlist::Bool + chrono::Datelike + 'a
 
     {
 
-        let results : Vec<K> = iterator.into_par_iter().map( |x| {
+        let results = iterator.into_par_iter().map( | x| {
             match x {
-                Some(a) =>  new_k(a) ,
+                Some(a) =>  new_k(a),
                 None => K::new_null()
-            }  ;
+            }  
         }).collect();
 
         let k = list_k(results);
 
         return k;
     }
-    */
-
+    
     pub fn to_k<'a>(&self, dataframe: &DataFrame) -> K {
 
         let columns = dataframe.get_columns().par_iter().map(|series| -> K {
@@ -119,25 +71,60 @@ impl PolarsUtils {
                     }).collect();
                     K::new_compound_list(converted)
                 }
+                DataType::Float32 => {
+                    //NOTE - Polars doesn't support IntoParallelIterator for all types of ChunkedArray 
+                    //It might come at some point but for now using into_iter with collect
+                    self.series_to_k_par(series.f32().unwrap().into_iter().collect::<Vec<_>>(), 
+                        |v| K::new_real(v),
+                        |k| K::new_compound_list(k)
+                    )
+                }
                 DataType::Float64 => {
-                    self.series_to_k_new( 
-                        series.f64().unwrap(), 
+                    self.series_to_k_par( 
+                        series.f64().unwrap().into_iter().collect::<Vec<_>>(), 
                         |v| K::new_float(v),
                         |k| K::new_compound_list(k)
                     )
                 }
+                DataType::Int8 => {
+                    //KDB Does have an Int8 - Assign it to an i16
+                    self.series_to_k_par(series.i8().unwrap().into_iter().collect::<Vec<_>>(), 
+                        |v| K::new_short(v.into()),
+                        |k| K::new_compound_list(k)
+                    )
+                }
+                DataType::Int16 => {
+                    self.series_to_k_par(series.i16().unwrap().into_iter().collect::<Vec<_>>(), 
+                        |v| K::new_short(v),
+                        |k| K::new_compound_list(k)
+                    )
+                }
                 DataType::Int32  => {
-                    self.series_to_k_new (series.i32().unwrap(),
+                    self.series_to_k_par (series.i32().unwrap().into_iter().collect::<Vec<_>>(),
                         |v| K::new_int(v),
                         |k| K::new_compound_list(k)
                     )
                 }
                 DataType::Int64 => {
-                    self.series_to_k_new(series.i64().unwrap(), 
+                    self.series_to_k_par(series.i64().unwrap().into_iter().collect::<Vec<_>>(), 
                         |v| K::new_long(v),
                         |k| K::new_compound_list(k)
                     )
                 }
+                DataType::UInt8 => {
+                    self.series_to_k_par(series.u8().unwrap().into_iter().collect::<Vec<_>>(), 
+                        |v| K::new_byte(v),
+                        |k| K::new_compound_list(k)
+                    )
+                }
+                /* 
+                DataType::Boolean => {
+                    self.series_to_k_par(series.bool().unwrap().into_iter().collect::<Vec<_>>(), 
+                        |v| K::new_bool(v),
+                        |k| K::new_compound_list(k)
+                    )
+                }
+                */
                 _ => panic!()
             }
     
