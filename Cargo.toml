@@ -20,6 +20,7 @@ python-source = "polarskdb"
 
 [dependencies]
 pyo3 = "0.18.3"
+pyo3-log = "0.8.1"
 pyo3-asyncio = { version = "0.18", features = ["tokio-runtime"] }
 kdbplus = {version="0.3.8", features=["ipc", "api"]}
 polars-core = { version = "0.28.0" }

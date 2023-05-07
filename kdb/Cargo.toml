@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 pyo3 = "0.18.3"
+pyo3-log = "0.8.1"
+log="0.4.17"
 pyo3-asyncio = { version = "0.18", features = ["tokio-runtime"] }
 tokio = { version = "1.28.0", features = ["full"] }
 kdbplus = {version="0.3.8", features=["ipc", "api"]}

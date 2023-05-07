@@ -27,6 +27,7 @@ fn new(py: Python, hostname: String, port: u16) -> PyResult<&PyAny> {
 
 #[pymodule]
 fn polarskdb(_py: Python, m: &PyModule) -> PyResult<()> {
+    pyo3_log::init();
     m.add("__version__", get_version())?;
     m.add_function(wrap_pyfunction!(new, m)?)?;
     m.add_class::<Connection>()?;
