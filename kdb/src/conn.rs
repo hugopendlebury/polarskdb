@@ -2,14 +2,13 @@ use core::result::Result as StdResult;
 use kdbplus::ipc::K;
 use kdbplus::ipc::*;
 use kdbplus::*;
-use polars_core::prelude::*;
+use polars::prelude::*;
 use py_types::{py_error, DBError, PySQLXError};
 use pyo3::prelude::*;
 use pyo3_polars::PyDataFrame;
 use core::result::Result;
 use super::helpers::*;
 use rayon::prelude::*;
-use rayon::option::*;
 
 #[pyclass]
 #[derive(Debug, Clone)]
@@ -117,6 +116,14 @@ impl PolarsUtils {
                         |k| K::new_compound_list(k)
                     )
                 }
+
+                //Below is from k.h
+                /* 
+                #define KP 12 // 8 timestamp long   kJ (nanoseconds from 2000.01.01)
+                #define KM 13 // 4 month     int    kI (months from 2000.01.01)
+                #define KD 14 // 4 date      int    kI (days from 2000.01.01)
+                */
+
                 /* 
                 DataType::Boolean => {
                     self.series_to_k_par(series.bool().unwrap().into_iter().collect::<Vec<_>>(), 

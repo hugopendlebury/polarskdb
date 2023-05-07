@@ -69,10 +69,10 @@ if __name__ == "__main__":
 ```
 
 
-Why not use pyQ ?
+Why not use pyQ - The KX Systems library?
 
 You are welcome to use anything you choose. pyQ works by creating
-a custom python iterprester which contains an embedded Q instance.
+a custom python iterpreter which contains an embedded Q instance.
 As such it is not possible to do write a script that uses your regular python 
 iterpretor which imports pyQ. 
 

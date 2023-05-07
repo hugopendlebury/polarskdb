@@ -8,13 +8,13 @@ pyo3 = "0.18.3"
 pyo3-asyncio = { version = "0.18", features = ["tokio-runtime"] }
 tokio = { version = "1.28.0", features = ["full"] }
 kdbplus = {version="0.3.8", features=["ipc", "api"]}
-polars-core = { version = "0.28.0" }
+polars = { version = "0.28.0", features=["temporal"] }
 pyo3-polars = "0.2.1"
 py_types = { path = "../py_types"}
 chrono="0.4"
 num-traits = "0.2.15"
 rayon = {version = "1.7"}
-#lhlist = "0.1.1"
+once_cell = "1.17.1"
 
 [dev-dependencies]
 tokio = { version = "1.28.0", features = ["macros"] }
