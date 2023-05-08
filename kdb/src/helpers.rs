@@ -8,7 +8,9 @@ use polars::prelude::*;
 use rayon::prelude::*;
 
 //use chrono
-const KDB_EPOCH: Lazy<chrono::DateTime<Utc>> =
+pub const UNIX_EPOCH_DATE: Lazy<chrono::DateTime<Utc>> =
+    Lazy::new(|| Utc.with_ymd_and_hms(1970, 1, 1, 0, 0, 0).unwrap());
+pub const KDB_EPOCH: Lazy<chrono::DateTime<Utc>> =
     Lazy::new(|| Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap());
 const TIME_OFFSET: Lazy<i64> = Lazy::new(|| {
     KDB_EPOCH
@@ -37,11 +39,19 @@ pub fn k_result_to_series(result: &K) -> Vec<Series> {
             let c = result.get_column(col).unwrap();
 
             match c.get_type() {
+                qtype::SHORT_LIST => Series::new(col.as_str(),
+                    c.as_vec::<i16>()
+                        .unwrap()
+                        .iter()
+                        .map(|d| {
+                            i32::from(*d)
+                        }).collect::<Vec<i32>>()
+                ),
+                qtype::INT_LIST => Series::new(col.as_str(), c.as_vec::<i32>().unwrap()),
                 qtype::LONG_LIST => Series::new(col.as_str(), c.as_vec::<i64>().unwrap()),
                 qtype::SYMBOL_LIST => Series::new(col.as_str(), c.as_vec::<String>().unwrap()),
-                qtype::FLOAT_LIST => Series::new(col.as_str(), c.as_vec::<f64>().unwrap()),
-                qtype::INT_LIST => Series::new(col.as_str(), c.as_vec::<i32>().unwrap()),
                 qtype::REAL_LIST => Series::new(col.as_str(), c.as_vec::<f32>().unwrap()),
+                qtype::FLOAT_LIST => Series::new(col.as_str(), c.as_vec::<f64>().unwrap()),
                 qtype::BOOL_LIST => Series::new(col.as_str(), c.as_vec::<bool>().unwrap()),
                 qtype::DATE_LIST => Series::new(
                     col.as_str(),
