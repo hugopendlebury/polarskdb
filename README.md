@@ -1,3 +1,5 @@
+# Polars KDB
+
 Polars KDB is a Python Library to interface with KX Systems KDB
 Under the hood it uses the Rust Language, IPC for communication and Polars.
 
@@ -5,43 +7,42 @@ It makes it possible to load a polars dataframe from KDB
 and write data to a KDB table from a polars dataframe.
 
 
-* Develop
-    - Install KDB and request a license
-        - https://kx.com/kdb-personal-edition-download/
-        - If prompted do not enable security / create an account
-        - Set QHOME Environment variable - so the lic file can be found
-        - Install rlwrap - a utility which will enable to use the cursor in the CLI e.g. up arrow to repeat / scroll commands
-        - on linux install rlwrap (use apg-get / YUM etc..)
-        - on osx install rlwrap (use brew)
-        - start the kdb database on a port
-          - in the folder which contains the file q start the server
-          - rlwrap q -p 5001
-    - Install Rust
-        - Download rustup from https://www.rust-lang.org/tools/install
-    - Install maturin 
-        - pip install maturin
-    
-    - Building
-        - From the root folder type: maturin develop
-        - Install the wheel to test with pip install
+## Develop
+[Install KDB and request a license](https://kx.com/kdb-personal-edition-download/)
+  
+    - If prompted do not enable security / create an account
+    - Set QHOME Environment variable - so the lic file can be found
+    - Install rlwrap - a utility which will enable to use the cursor in the CLI e.g. up arrow to repeat / scroll commands
+    - on linux install rlwrap (use apg-get / YUM etc..)
+    - on osx install rlwrap (use brew)
+    - start the kdb database on a port
+        - in the folder which contains the file q start the server
+        - rlwrap q -p 5001
+        - 
+[Install Rust](https://www.rust-lang.org/tools/install)
 
-Using from code from python
+Install maturin with the command pip install maturin
 
-The code is async. You can use an event loop but in general the consensus is that uvloop is the fastest, so you might want to install it with pip install uvloop.
+- Building
+    - From the root folder type: maturin develop
+    - Install the wheel to test with pip install
 
-Sample usage below. Note you probably don't have excelpivotdata installed, use any way you know to populate your dataframe.
+## Using from code from python
+
+The code is async. You can use any event loop but in general the consensus is that uvloop is the fastest, so you might want to install it with pip install uvloop.
+
+Sample usage is shown below. 
 
 
-```
-import excelpivotdata
+```python
 import polars as pl
 import polarskdb 
 import asyncio 
 import uvloop
 import sys
 
-async def get_pivot_data():
-    return await excelpivotdata.get_pivot_data('data.xlsx')
+def get_data(file_path: str):
+    return pl.scan_csv(file_path)
 
 async def get_db():
     db = await polarskdb.new("localhost", 5001)
@@ -54,7 +55,7 @@ async def write_to_kdb(df):
 
 async def main():
 
-    df = await get_pivot_data()
+    df = get_data("/users/hugo/test.csv")
     db = await get_db()
     await write_to_kdb(df)
 
@@ -69,7 +70,7 @@ if __name__ == "__main__":
 ```
 
 
-Why not use pyQ - The KX Systems library?
+## Why not use pyQ - The KX Systems library?
 
 You are welcome to use anything you choose. pyQ works by creating
 a custom python iterpreter which contains an embedded Q instance.
@@ -84,6 +85,7 @@ where
 
 runScript.py is 
 
+```python
 import pyq
 
 def doSomething():
@@ -91,6 +93,7 @@ def doSomething():
 
 if __name__ == "__main__":
     doSomething()
+```
 
 The above will not work and you will get the error:
 
@@ -103,17 +106,20 @@ ultimatley have to use IPC anyway. A sample use of pyQ to connect to a remote
 database and load the results into pandas is given below. Note that this
 code is synchronous whilst Polars KDB uses Async for querying.
 
-
+```python
 import numpy as np
 import pandas pd
 
 q("h:hopen `:localhost:5001") #connect to a remote database and assign the handle to the variable h
-#load the results of the remote table myTable locally 
-myTable = q(r'h "select from myTable"') #The Q statements need to be quotes hence use of raw string (r)
+#load the results of the remote table called myTable locally 
+myTable = q(r'h "select from myTable"') #The Q statements need to be in quotes hence use of raw string (r)
 myTableNP = np.array(myTable)
 df = pd.DataFrame(myTableNP)
+```
 
 In polarsKDB this would be
 
+```python
 db = await polarskdb.new("localhost", 5001)
 df = await db.query("select form myTable)
+```
