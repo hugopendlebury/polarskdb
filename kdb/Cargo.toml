@@ -10,8 +10,8 @@ log="0.4.17"
 pyo3-asyncio = { version = "0.18", features = ["tokio-runtime"] }
 tokio = { version = "1.28.0", features = ["full"] }
 kdbplus = {version="0.3.8", features=["ipc", "api"]}
-polars = { version = "0.28.0", features=["temporal"] }
-pyo3-polars = "0.2.1"
+polars = { version = "0.29.0", features=["temporal"] }
+pyo3-polars = "0.3.0"
 py_types = { path = "../py_types"}
 chrono="0.4"
 num-traits = "0.2.15"

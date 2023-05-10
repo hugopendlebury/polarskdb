@@ -3,6 +3,7 @@ use kdbplus::ipc::K;
 use kdbplus::ipc::*;
 use kdbplus::*;
 use polars::prelude::*;
+use log::info;
 use py_types::{py_error, DBError, PySQLXError};
 use pyo3::prelude::*;
 use pyo3_polars::PyDataFrame;
@@ -38,7 +39,7 @@ impl PolarsUtils {
     where    F: IntoParallelIterator<Item = Option<T>> 
             ,NewK: Fn(T) -> K + std::marker::Sync
             ,ListK: Fn(Vec<K>) -> K
-            ,T: num_traits::Num //+ lhlist::Bool + chrono::Datelike + 'a
+            ,T: num_traits::Num
 
     {
 
@@ -56,9 +57,9 @@ impl PolarsUtils {
     
     pub fn to_k<'a>(&self, dataframe: &DataFrame) -> K {
 
-        let columns = dataframe.get_columns().par_iter().map(|series| -> K {
-            
-            match series._dtype() {
+        let columns = dataframe.get_columns().into_iter().map(|series| -> K {
+            info!("in to_k with dtype = {}", series.dtype());
+            match series.dtype() {
 
                 DataType::Utf8 => {
                     let x = series.utf8().unwrap().par_iter();
@@ -116,22 +117,35 @@ impl PolarsUtils {
                         |k| K::new_compound_list(k)
                     )
                 }
-
-                //Below is from k.h
-                /* 
-                #define KP 12 // 8 timestamp long   kJ (nanoseconds from 2000.01.01)
-                #define KM 13 // 4 month     int    kI (months from 2000.01.01)
-                #define KD 14 // 4 date      int    kI (days from 2000.01.01)
-                */
-
-                /* 
-                DataType::Boolean => {
-                    self.series_to_k_par(series.bool().unwrap().into_iter().collect::<Vec<_>>(), 
-                        |v| K::new_bool(v),
-                        |k| K::new_compound_list(k)
-                    )
+                DataType::Date => {
+                    let x = series.date().unwrap().into_iter();
+                    let converted: Vec<K> = x.map( |x| {
+                        match x {
+                            Some(a) =>  {
+                                //Polars gives us the number of days from the Epoch
+                                let dt = *UNIX_EPOCH_DATE + chrono::Duration::days(a as i64);
+                                K::new_date(dt.date_naive())
+                            },
+                            None => K::new_null()
+                        }  
+                    }).collect();
+                    K::new_compound_list(converted)
                 }
-                */
+                DataType::Datetime(_,_)=> {
+                    let x = series.datetime().unwrap().into_iter();
+                    let converted: Vec<K> = x.map( |x| {
+                        info!("map value {:?}", x);
+                        match x {
+                            Some(a) =>  {
+                                let dt = *UNIX_EPOCH_DATE + chrono::Duration::microseconds(a);
+                                info!("date is {}", dt);
+                                K::new_datetime(dt)
+                            },
+                            None => K::new_null()
+                        }  
+                    }).collect();
+                    K::new_compound_list(converted)
+                }
                 _ => panic!()
             }
     
@@ -168,7 +182,7 @@ impl Connection {
                     },
                     Err(e) => {
                         return Err(py_error(
-                            String::from("Unable to create dataframe"),
+                            format!("Unable to create dataframe {}", e),
                             DBError::PolarsCreationError,
                         ))
                     }
@@ -176,7 +190,7 @@ impl Connection {
             },
             Err(e) => {
                 return Err(py_error(
-                    String::from("Unable to execute query"),
+                    format!("Unable to execute query {}", e),
                     DBError::QueryError,
                 ))
             }
@@ -189,12 +203,12 @@ impl Connection {
         let conn = kdbplus::ipc::QStream::connect(ConnectionMethod::TCP, &self.hostname, self.port, "").await;
 
         match conn.unwrap().send_async_message(k).await {
-            Ok(r) => {
+            Ok(_) => {
                 Ok(())
             },
             Err(e) => {
                 return Err(py_error(
-                    String::from("Unable to execute query"),
+                    format!("Unable to execute query {}", e),
                     DBError::QueryError,
                 ))
             }
@@ -206,6 +220,14 @@ impl Connection {
 
 #[pymethods]
 impl Connection {
+
+    pub fn list_tables<'a>(&self, py: Python<'a>) -> PyResult<&'a PyAny> {
+
+        let query = "( [] table_names: tables[])";
+        return self.query(py, query.to_string());
+
+    }
+
 
     pub fn query<'a>(&self, py: Python<'a>, sql: String) -> PyResult<&'a PyAny> {
 
@@ -220,13 +242,12 @@ impl Connection {
 
 
     pub fn polars_to_table<'a>(&self, py: Python<'a>, table_name: String, data: PyDataFrame) -> PyResult<&'a PyAny> {
-
-        //let mut file = File::options().append(true).open("/Users/hugo/polars.log")?;
-
+        info!("Saving to table");
         let df = data.0;
 
         let utils = PolarsUtils::new();
         let util_unwrapped = utils.unwrap();
+        info!("About to call to_k");
         let values = util_unwrapped.to_k(&df);
         let keys = K::new_symbol_list(
                         df.get_column_names().into_iter().map(|col| String::from(col)).collect()
@@ -240,7 +261,7 @@ impl Connection {
         let slf = self.clone();
         pyo3_asyncio::tokio::future_into_py(py, async move {
             match slf._send_k(&table_assign).await {
-                Ok(_r) => Ok(true),
+                Ok(_) => Ok(true),
                 Err(e) => Err(e.to_pyerr()),
             }
         })

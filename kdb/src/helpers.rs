@@ -37,8 +37,23 @@ pub fn k_result_to_series(result: &K) -> Vec<Series> {
         .par_iter()
         .map(|col| {
             let c = result.get_column(col).unwrap();
-
+            info!("column is {}", c);
+            info!("type is {}", c.get_type());
             match c.get_type() {
+                qtype::COMPOUND_LIST => Series::new(col.as_str(),
+                    c.as_vec::<K>()
+                        .unwrap()
+                        .iter()
+                        .flat_map(|value| {
+                            info!("value is of type {}", value.get_type());
+                            match value.get_type() {
+                                   //qtype::STRING => value.get_symbol().unwrap().to_string(),
+                                   //qtype::SYMBOL_ATOM => value.get_symbol().unwrap().to_string(),
+                                   qtype::SYMBOL_LIST => value.as_vec::<String>().unwrap(),
+                                   _ => panic!()
+                            }
+                        }).map(|s| {s.to_string()}).collect::<Vec<String>>()
+                ),
                 qtype::SHORT_LIST => Series::new(col.as_str(),
                     c.as_vec::<i16>()
                         .unwrap()
