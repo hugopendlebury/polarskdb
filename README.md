@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
 You are welcome to use anything you choose. pyQ works by creating
 a custom python iterpreter which contains an embedded Q instance.
-As such it is not possible to do write a script that uses your regular python 
+As such it is not possible to write a script that uses your regular python 
 iterpretor which imports pyQ. 
 
 e.g.

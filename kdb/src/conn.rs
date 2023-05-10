@@ -137,7 +137,7 @@ impl PolarsUtils {
                         info!("map value {:?}", x);
                         match x {
                             Some(a) =>  {
-                                let dt = *UNIX_EPOCH_DATE + chrono::Duration::microseconds(a);
+                                let dt = *UNIX_EPOCH_DATE + chrono::Duration::milliseconds(a);
                                 info!("date is {}", dt);
                                 K::new_datetime(dt)
                             },

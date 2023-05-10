@@ -27,6 +27,7 @@ pub fn get_column_names<'a>(result: &'a K) -> impl Iterator<Item = &'a String> {
 }
 
 pub fn get_column_names_as_vec<'a>(result: &'a K) -> &Vec<String> {
+    info!("Getting columns for type {}", result.get_type());
     let dictionary = result.get_dictionary().unwrap().as_vec::<K>().unwrap();
     dictionary[0].as_vec::<String>().unwrap()
 }
