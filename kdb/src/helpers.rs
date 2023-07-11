@@ -13,7 +13,6 @@ pub const UNIX_EPOCH_DATE: Lazy<chrono::DateTime<Utc>> =
 pub const KDB_EPOCH: Lazy<chrono::DateTime<Utc>> =
     Lazy::new(|| Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap());
 
-
 const TIME_OFFSET: Lazy<i64> = Lazy::new(|| {
     KDB_EPOCH
         .signed_duration_since(Utc.with_ymd_and_hms(1970, 1, 1, 0, 0, 0).unwrap())
@@ -117,9 +116,8 @@ pub fn k_result_to_series(result: &K) -> Vec<Series> {
                             let x = d.floor() as i64;
                             info!("Converted value to {}", x);
                             Utc.timestamp_opt(
-                                ((x * Into::<i64>::into(SECONDS_IN_DAY)) + *TIME_OFFSET)
-                                    .into(),
-                                    //Nano Seconds won't work at this point need to check how that works
+                                ((x * Into::<i64>::into(SECONDS_IN_DAY)) + *TIME_OFFSET).into(),
+                                //Nano Seconds won't work at this point need to check how that works
                                 (x % NANO_SECONDS_IN_SECOND).try_into().unwrap(),
                             )
                             .unwrap()

@@ -55,6 +55,27 @@ impl PolarsUtils {
         return k;
     }
     
+
+    fn series_to_k_list<'a, F, T, QNull, ListK>(&self, iterator: F, q_null: QNull, list_k: ListK) -> K 
+    where    F: IntoIterator<Item = Option<T>> 
+            ,ListK: Fn(Vec<T>) -> K
+            ,QNull: Fn() -> T
+            ,T: num_traits::Num
+
+    {
+
+        let results = iterator.into_iter().map( | x| {
+            match x {
+                Some(a) =>  a,
+                None => q_null()
+            }  
+        }).collect();
+
+        let k = list_k(results);
+
+        return k;
+    }
+
     pub fn to_k<'a>(&self, dataframe: &DataFrame) -> K {
 
         let columns = dataframe.get_columns().into_iter().map(|series| -> K {
@@ -74,41 +95,47 @@ impl PolarsUtils {
                 DataType::Float32 => {
                     //NOTE - Polars doesn't support IntoParallelIterator for all types of ChunkedArray 
                     //It might come at some point but for now using into_iter with collect
-                    self.series_to_k_par(series.f32().unwrap().into_iter().collect::<Vec<_>>(), 
-                        |v| K::new_real(v),
-                        |k| K::new_compound_list(k)
+                    self.series_to_k_list(series.f32().unwrap().into_iter().collect::<Vec<_>>(), 
+                        || { qnull::REAL },
+                        |k| K::new_real_list(k, qattribute::NONE)
                     )
                 }
                 DataType::Float64 => {
-                    self.series_to_k_par( 
+                    self.series_to_k_list( 
                         series.f64().unwrap().into_iter().collect::<Vec<_>>(), 
-                        |v| K::new_float(v),
-                        |k| K::new_compound_list(k)
+                        || { qnull::FLOAT },
+                        |k| K::new_float_list(k, qattribute::NONE)
                     )
                 }
                 DataType::Int8 => {
                     //KDB Does have an Int8 - Assign it to an i16
-                    self.series_to_k_par(series.i8().unwrap().into_iter().collect::<Vec<_>>(), 
-                        |v| K::new_short(v.into()),
-                        |k| K::new_compound_list(k)
+                    self.series_to_k_list(series.i8().unwrap().into_iter()
+                                        .map(|x| {
+                                            match x {
+                                                Some(x) => Some(Into::<i16>::into(x)),
+                                                None => None
+                                            }
+                                        }).collect::<Vec<_>>(), 
+                         || { qnull::SHORT },
+                        |k| K::new_short_list(k, qattribute::NONE)
                     )
                 }
                 DataType::Int16 => {
-                    self.series_to_k_par(series.i16().unwrap().into_iter().collect::<Vec<_>>(), 
-                        |v| K::new_short(v),
-                        |k| K::new_compound_list(k)
+                    self.series_to_k_list(series.i16().unwrap().into_iter().collect::<Vec<_>>(), 
+                        || { qnull::SHORT },
+                        |k| K::new_short_list(k, qattribute::NONE)
                     )
                 }
                 DataType::Int32  => {
-                    self.series_to_k_par (series.i32().unwrap().into_iter().collect::<Vec<_>>(),
-                        |v| K::new_int(v),
-                        |k| K::new_compound_list(k)
+                    self.series_to_k_list (series.i32().unwrap().into_iter().collect::<Vec<_>>(),
+                        || {qnull::INT}, 
+                        |k| K::new_int_list(k, qattribute::NONE)
                     )
                 }
                 DataType::Int64 => {
-                    self.series_to_k_par(series.i64().unwrap().into_iter().collect::<Vec<_>>(), 
-                        |v| K::new_long(v),
-                        |k| K::new_compound_list(k)
+                    self.series_to_k_list(series.i64().unwrap().into_iter().collect::<Vec<_>>(), 
+                        || {qnull::LONG},
+                        |k| K::new_long_list(k, qattribute::NONE)
                     )
                 }
                 DataType::UInt8 => {
