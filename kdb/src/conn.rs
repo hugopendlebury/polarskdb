@@ -131,7 +131,22 @@ impl PolarsUtils {
                     }).collect();
                     K::new_compound_list(converted)
                 }
-                DataType::Datetime(_,_)=> {
+                DataType::Datetime(TimeUnit::Microseconds,_)=> {
+                    let x = series.datetime().unwrap().into_iter();
+                    let converted: Vec<K> = x.map( |x| {
+                        info!("map value {:?}", x);
+                        match x {
+                            Some(a) =>  {
+                                let dt = *UNIX_EPOCH_DATE + chrono::Duration::microseconds(a);
+                                info!("date is {}", dt);
+                                K::new_datetime(dt)
+                            },
+                            None => K::new_null()
+                        }  
+                    }).collect();
+                    K::new_compound_list(converted)
+                }
+                DataType::Datetime(TimeUnit::Milliseconds,_)=> {
                     let x = series.datetime().unwrap().into_iter();
                     let converted: Vec<K> = x.map( |x| {
                         info!("map value {:?}", x);
